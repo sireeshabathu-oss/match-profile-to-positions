@@ -1,0 +1,12 @@
+# Copy this file to ".env" and fill in ONE of the following, depending on
+# which AI provider you want the agents to use.
+
+# Option A: OpenAI (default model in crew.py is gpt-4o-mini)
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Option B: Anthropic — if you use this, also change MODEL below to
+# "anthropic/claude-3-5-sonnet-latest" and set ANTHROPIC_API_KEY instead
+# ANTHROPIC_API_KEY=your_anthropic_api_key_here
+
+# Optional: override which model the agents use
+MODEL=gpt-4o-mini
