@@ -50,3 +50,12 @@ match-profile-to-positions/
 ## Why this project is worth showing
 
 This builds on a simpler rule-based matcher (skills overlap + experience scoring) by replacing the scoring logic with actual AI agents that reason about fit the way a human recruiter would — a good talking point in interviews about the difference between deterministic logic and LLM-based reasoning.
+
+
+## Tech Stack
+
+- **Language:** Python
+- **AI Framework:** CrewAI (multi-agent orchestration)
+- **LLM Provider:** OpenAI or Anthropic (configurable)
+- **Environment Management:** python-dotenv
+- **Version Control:** Git / GitHub
