@@ -63,42 +63,86 @@ def build_crew(candidate_profile: str, job_positions: str) -> Crew:
         llm=MODEL,
     )
 
-    analyze_candidate = Task(
-        description=(
-            "Analyze the following candidate profile and list their key skills, "
-            f"years of experience, and standout strengths:\n\n{candidate_profile}"
-        ),
-        expected_output=(
-            "A structured summary of the candidate's skills, years of experience, "
-            "and standout strengths."
-        ),
-        agent=profile_analyst,
-    )
+   analyze_candidate = Task(
+    description=(
+        "Analyze the candidate profile below.\n\n"
+        f"{candidate_profile}\n\n"
+        "Extract the information accurately. Do not invent information.\n"
+        "Return the result in this exact JSON structure:\n\n"
+        "{\n"
+        '  "skills": ["skill1", "skill2"],\n'
+        '  "years_of_experience": 0,\n'
+        '  "strengths": ["strength1", "strength2"],\n'
+        '  "education": ["education detail"]\n'
+        "}"
+    ),
+    expected_output=(
+        "Valid JSON containing skills, years_of_experience, strengths, "
+        "and education. Only include information supported by the candidate profile."
+    ),
+    agent=profile_analyst,
+)
 
-    analyze_positions = Task(
-        description=(
-            "Analyze the following job positions and break each one down into "
-            f"required skills, nice-to-have skills, and experience level:\n\n{job_positions}"
-        ),
-        expected_output="A structured requirements breakdown for each position.",
-        agent=position_analyst,
-    )
+   analyze_positions = Task(
+    description=(
+        "Analyze the job positions below.\n\n"
+        f"{job_positions}\n\n"
+        "For each position, identify the required skills, preferred skills, "
+        "and minimum experience. Do not invent requirements.\n\n"
+        "Return the result in this JSON structure:\n\n"
+        "{\n"
+        '  "positions": [\n'
+        "    {\n"
+        '      "title": "Job Title",\n'
+        '      "required_skills": ["skill1", "skill2"],\n'
+        '      "preferred_skills": ["skill3"],\n'
+        '      "minimum_years_experience": 0\n'
+        "    }\n"
+        "  ]\n"
+        "}"
+    ),
+    expected_output=(
+        "Valid JSON containing a list of positions with their titles, "
+        "required skills, preferred skills, and minimum experience."
+    ),
+    agent=position_analyst,
+)
 
-    match_task = Task(
-        description=(
-            "Using the candidate summary and the position breakdowns produced by "
-            "the other two analysts, determine which position(s) the candidate is "
-            "the best fit for. For every position give a match score out of 100 and "
-            "a short justification. Finish with a clear recommendation of the single "
-            "best-fit position."
-        ),
-        expected_output=(
-            "A ranked list of positions with match scores and reasoning, ending "
-            "with one clear recommended position."
-        ),
-        agent=matchmaker,
-        context=[analyze_candidate, analyze_positions],
-    )
+   match_task = Task(
+    description=(
+        "Using the candidate analysis and job position analysis produced by "
+        "the other agents, evaluate the candidate against every position.\n\n"
+        "For each position:\n"
+        "1. Identify matching required skills.\n"
+        "2. Identify missing required skills.\n"
+        "3. Identify matching preferred skills.\n"
+        "4. Compare the candidate's experience with the required experience.\n"
+        "5. Calculate a match score from 0 to 100 based only on the evidence provided.\n"
+        "6. Give a short explanation for the score.\n\n"
+        "Return the result in this structure:\n\n"
+        "{\n"
+        '  "matches": [\n'
+        "    {\n"
+        '      "position": "Job Title",\n'
+        '      "match_score": 0,\n'
+        '      "matching_skills": [],\n'
+        '      "missing_skills": [],\n'
+        '      "experience_match": "",\n'
+        '      "explanation": ""\n'
+        "    }\n"
+        "  ],\n"
+        '  "best_fit": "Job Title"\n'
+        "}\n\n"
+        "Do not invent candidate skills or job requirements."
+    ),
+    expected_output=(
+        "Valid JSON containing match results for every position, including "
+        "match_score, matching_skills, missing_skills, experience_match, "
+        "explanation, and best_fit."
+    ),
+    agent=matchmaker,
+    context=[analyze_candidate, analyze_positions],
+)
 
     return Crew(
         agents=[profile_analyst, position_analyst, matchmaker],
