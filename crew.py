@@ -139,7 +139,7 @@ def build_crew(candidate_profile: str, job_positions: str) -> Crew:
         agent=position_analyst,
     )
 
-    match_task = Task(
+        match_task = Task(
         description=(
             "Using the candidate analysis and job position analysis produced by "
             "the other agents, evaluate the candidate against every position.\n\n"
@@ -148,33 +148,34 @@ def build_crew(candidate_profile: str, job_positions: str) -> Crew:
             "2. Identify missing required skills.\n"
             "3. Identify matching preferred skills.\n"
             "4. Compare the candidate's experience with the required experience.\n"
-            "5. Calculate a match score from 0 to 100 based only on the evidence provided.\n"
-            "6. Give a short explanation for the score.\n\n"
+            "5. Give a short explanation based only on the evidence provided.\n\n"
+            "Do not calculate a numerical match score.\n"
+            "Do not rank the positions.\n"
+            "Do not choose a best-fit position.\n\n"
             "Return the result in this structure:\n\n"
             "{\n"
             '  "matches": [\n'
             "    {\n"
             '      "position": "Job Title",\n'
-            '      "match_score": 0,\n'
-            '      "matching_skills": [],\n'
-            '      "missing_skills": [],\n'
+            '      "matching_required_skills": [],\n'
+            '      "missing_required_skills": [],\n'
+            '      "matching_preferred_skills": [],\n'
             '      "experience_match": "",\n'
             '      "explanation": ""\n'
             "    }\n"
-            "  ],\n"
-            '  "best_fit": "Job Title"\n'
+            "  ]\n"
             "}\n\n"
             "Do not invent candidate skills or job requirements."
         ),
         expected_output=(
             "Valid JSON containing match results for every position, including "
-            "match_score, matching_skills, missing_skills, experience_match, "
-            "explanation, and best_fit."
+            "matching_required_skills, missing_required_skills, "
+            "matching_preferred_skills, experience_match, and explanation. "
+            "Do not calculate a numerical score or choose a best-fit position."
         ),
         agent=matchmaker,
         context=[analyze_candidate, analyze_positions],
     )
-
     return Crew(
         agents=[profile_analyst, position_analyst, matchmaker],
         tasks=[analyze_candidate, analyze_positions, match_task],
