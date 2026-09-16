@@ -34,9 +34,9 @@ def calculate_match_score(
     )
 
     preferred_score = (
-        len(matching_preferred_skills) / len(preferred_skills) * 20
+        len(matching_preferred_skills) / len(preferred_skills) * 30
         if preferred_skills
-        else 20
+        else 30
     )
 
     if required_years <= 0:
