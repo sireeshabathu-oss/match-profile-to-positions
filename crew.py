@@ -1,10 +1,13 @@
 """
 Defines the AI agents and tasks that make up the Match Profile to Positions crew.
 
-Three agents work together in sequence:
+Four agents work together in sequence:
 1. Profile Analyst  - reads the candidate profile and extracts skills/experience
 2. Position Analyst - reads the job postings and extracts requirements
-3. Matchmaker       - compares the two and recommends the best-fit role(s)
+3. Matchmaker        - evaluates the candidate against every position using ONLY
+                        stated evidence (no scoring, no ranking, no final pick)
+4. Recommender       - reads the Matchmaker's evidence and makes the final call:
+                        which position is the best fit, and why
 """
 
 import os
@@ -13,41 +16,10 @@ from crewai import Agent, Task, Crew, Process
 
 load_dotenv()
 
-# Which LLM to use.
+# Which LLM to use. Defaults to a small OpenAI model; swap for an Anthropic
+# model (e.g. "anthropic/claude-3-5-sonnet-latest") or Gemini
+# (e.g. "gemini/gemini-1.5-flash") if you set the matching API key instead.
 MODEL = os.getenv("MODEL", "gpt-4o-mini")
-
-
-def calculate_match_score(
-    required_skills: list[str],
-    matching_required_skills: list[str],
-    preferred_skills: list[str],
-    matching_preferred_skills: list[str],
-    candidate_years: float,
-    required_years: float,
-) -> float:
-    """Calculate a deterministic candidate-job match score."""
-
-    required_score = (
-        len(matching_required_skills) / len(required_skills) * 50
-        if required_skills
-        else 50
-    )
-
-    preferred_score = (
-        len(matching_preferred_skills) / len(preferred_skills) * 30
-        if preferred_skills
-        else 30
-    )
-
-    if required_years <= 0:
-        experience_score = 20
-    else:
-        experience_ratio = min(candidate_years / required_years, 1.0)
-        experience_score = experience_ratio * 20
-
-    score = required_score + preferred_score + experience_score
-
-    return round(min(score, 100), 2)
 
 
 def build_crew(candidate_profile: str, job_positions: str) -> Crew:
@@ -59,8 +31,8 @@ def build_crew(candidate_profile: str, job_positions: str) -> Crew:
         ),
         backstory=(
             "You are a meticulous HR analyst who has reviewed thousands of resumes. "
-            "You are excellent at pulling concrete skills, years of experience, and "
-            "notable achievements out of unstructured candidate profiles."
+            "You are excellent at pulling out concrete skills, years of experience, "
+            "and notable achievements from unstructured candidate profiles."
         ),
         verbose=True,
         llm=MODEL,
@@ -70,11 +42,11 @@ def build_crew(candidate_profile: str, job_positions: str) -> Crew:
         role="Job Requirements Analyst",
         goal=(
             "Break down each job position into its required skills, nice-to-have "
-            "skills, and minimum experience level."
+            "skills, and experience level."
         ),
         backstory=(
-            "You are a recruiter who specializes in translating job descriptions "
-            "into clear, structured requirements that are easy to evaluate against."
+            "You are a recruiter who specializes in translating vague job "
+            "descriptions into clear, structured requirements."
         ),
         verbose=True,
         llm=MODEL,
@@ -83,12 +55,30 @@ def build_crew(candidate_profile: str, job_positions: str) -> Crew:
     matchmaker = Agent(
         role="Job Matching Expert",
         goal=(
-            "Compare the candidate's profile against each job position and "
-            "recommend the best fit, with clear reasoning."
+            "Evaluate the candidate against every job position strictly using "
+            "stated evidence — no scoring, no ranking, no final pick."
         ),
         backstory=(
-            "You are a senior talent acquisition consultant known for making sharp, "
-            "well-justified matches between candidates and open roles."
+            "You are a careful evaluator who reports only what the evidence "
+            "shows. You never invent skills or requirements, and you never "
+            "jump to a conclusion about which role is 'best' — that decision "
+            "belongs to someone else."
+        ),
+        verbose=True,
+        llm=MODEL,
+    )
+
+    recommender = Agent(
+        role="Hiring Recommendation Lead",
+        goal=(
+            "Read the Matchmaker's evidence-based evaluation and make the final "
+            "call: which position is the best fit for this candidate, and why."
+        ),
+        backstory=(
+            "You are a senior talent acquisition lead who makes the final call "
+            "on candidate-role fit. You base your recommendation strictly on "
+            "the evidence already gathered — matching skills, missing skills, "
+            "and experience fit — and explain your reasoning clearly."
         ),
         verbose=True,
         llm=MODEL,
@@ -96,50 +86,26 @@ def build_crew(candidate_profile: str, job_positions: str) -> Crew:
 
     analyze_candidate = Task(
         description=(
-            "Analyze the candidate profile below.\n\n"
-            f"{candidate_profile}\n\n"
-            "Extract the information accurately. Do not invent information.\n"
-            "Return the result in this exact JSON structure:\n\n"
-            "{\n"
-            '  "skills": ["skill1", "skill2"],\n'
-            '  "years_of_experience": 0,\n'
-            '  "strengths": ["strength1", "strength2"],\n'
-            '  "education": ["education detail"]\n'
-            "}"
+            "Analyze the following candidate profile and list their key skills, "
+            f"experience, and strengths:\n\n{candidate_profile}"
         ),
         expected_output=(
-            "Valid JSON containing skills, years_of_experience, strengths, "
-            "and education. Only include information supported by the candidate profile."
+            "A structured summary of the candidate's skills, years of "
+            "experience, and standout strengths."
         ),
         agent=profile_analyst,
     )
 
     analyze_positions = Task(
         description=(
-            "Analyze the job positions below.\n\n"
-            f"{job_positions}\n\n"
-            "For each position, identify the required skills, preferred skills, "
-            "and minimum experience. Do not invent requirements.\n\n"
-            "Return the result in this JSON structure:\n\n"
-            "{\n"
-            '  "positions": [\n'
-            "    {\n"
-            '      "title": "Job Title",\n'
-            '      "required_skills": ["skill1", "skill2"],\n'
-            '      "preferred_skills": ["skill3"],\n'
-            '      "minimum_years_experience": 0\n'
-            "    }\n"
-            "  ]\n"
-            "}"
+            "Analyze the following job positions and break each one down into "
+            f"required skills, nice-to-have skills, and experience level:\n\n{job_positions}"
         ),
-        expected_output=(
-            "Valid JSON containing a list of positions with their titles, "
-            "required skills, preferred skills, and minimum experience."
-        ),
+        expected_output="A structured breakdown of each position's requirements.",
         agent=position_analyst,
     )
 
-        match_task = Task(
+    match_task = Task(
         description=(
             "Using the candidate analysis and job position analysis produced by "
             "the other agents, evaluate the candidate against every position.\n\n"
@@ -176,9 +142,38 @@ def build_crew(candidate_profile: str, job_positions: str) -> Crew:
         agent=matchmaker,
         context=[analyze_candidate, analyze_positions],
     )
+
+    recommend_task = Task(
+        description=(
+            "Using ONLY the Matchmaker's evidence (matching/missing required "
+            "skills, matching preferred skills, and experience comparison for "
+            "every position), decide which position is the best fit for this "
+            "candidate.\n\n"
+            "Base your decision strictly on:\n"
+            "- How many required skills are met vs. missing\n"
+            "- How many preferred skills are met\n"
+            "- Whether experience meets or exceeds the requirement\n\n"
+            "Do not introduce any new information not already present in the "
+            "Matchmaker's evidence. If two positions are genuinely tied on the "
+            "evidence, say so explicitly instead of guessing.\n\n"
+            "Return the result in this structure:\n\n"
+            "{\n"
+            '  "recommended_position": "Job Title or null if tied/unclear",\n'
+            '  "reasoning": "Explanation grounded in the evidence above",\n'
+            '  "runner_up": "Job Title or null if not applicable"\n'
+            "}"
+        ),
+        expected_output=(
+            "Valid JSON with recommended_position, reasoning, and runner_up, "
+            "based strictly on the Matchmaker's evidence."
+        ),
+        agent=recommender,
+        context=[match_task],
+    )
+
     return Crew(
-        agents=[profile_analyst, position_analyst, matchmaker],
-        tasks=[analyze_candidate, analyze_positions, match_task],
+        agents=[profile_analyst, position_analyst, matchmaker, recommender],
+        tasks=[analyze_candidate, analyze_positions, match_task, recommend_task],
         process=Process.sequential,
         verbose=True,
     )
