@@ -71,11 +71,24 @@ def build_final_matches(
     matches = []
 
     for position in position_data.get("positions", []):
-        required_skills = position.get("required_skills", [])
-        preferred_skills = position.get("preferred_skills", [])
 
-        required_normalized = normalize_skills(required_skills)
-        preferred_normalized = normalize_skills(preferred_skills)
+        required_skills = position.get(
+            "required_skills",
+            [],
+        )
+
+        preferred_skills = position.get(
+            "preferred_skills",
+            [],
+        )
+
+        required_normalized = normalize_skills(
+            required_skills
+        )
+
+        preferred_normalized = normalize_skills(
+            preferred_skills
+        )
 
         matching_required = (
             candidate_skills & required_normalized
@@ -90,14 +103,26 @@ def build_final_matches(
         )
 
         required_years = float(
-            position.get("minimum_years_experience", 0) or 0
+            position.get(
+                "minimum_years_experience",
+                0,
+            )
+            or 0
         )
 
         score = calculate_match_score(
-            required_skills=list(required_normalized),
-            matching_required_skills=list(matching_required),
-            preferred_skills=list(preferred_normalized),
-            matching_preferred_skills=list(matching_preferred),
+            required_skills=list(
+                required_normalized
+            ),
+            matching_required_skills=list(
+                matching_required
+            ),
+            preferred_skills=list(
+                preferred_normalized
+            ),
+            matching_preferred_skills=list(
+                matching_preferred
+            ),
             candidate_years=candidate_years,
             required_years=required_years,
         )
@@ -145,9 +170,13 @@ if __name__ == "__main__":
 
     positions_raw = result.tasks_output[1].raw
 
-    candidate_data = extract_json(candidate_raw)
+    candidate_data = extract_json(
+        candidate_raw
+    )
 
-    position_data = extract_json(positions_raw)
+    position_data = extract_json(
+        positions_raw
+    )
 
     final_matches = build_final_matches(
         candidate_data,
@@ -166,7 +195,8 @@ if __name__ == "__main__":
         )
 
         print(
-            f"Match Score: {match['match_score']}/100"
+            f"Match Score: "
+            f"{match['match_score']}/100"
         )
 
         print(
@@ -198,3 +228,15 @@ if __name__ == "__main__":
         )
 
         print("-" * 60)
+
+    best_match = final_matches[0]
+
+    print("\nRECOMMENDED POSITION")
+    print("=" * 60)
+    print(
+        f"Position: {best_match['position']}"
+    )
+    print(
+        f"Match Score: "
+        f"{best_match['match_score']}/100"
+    )
